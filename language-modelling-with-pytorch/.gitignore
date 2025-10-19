@@ -1,0 +1,7 @@
+data_tensors
+venv
+.idea
+__pycache__
+clean_text.py
+test.py
+deployment

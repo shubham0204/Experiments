@@ -1,0 +1,47 @@
+services:
+
+  server:
+    build: server/
+    image: blogpost-backend-server
+    container_name: "server"
+    depends_on:
+      - database
+    ports:
+      - '8080:8080'
+
+  proxy:
+    build: reverse-proxy/
+    image: blogpost-backend-proxy
+    container_name: "proxy"
+    depends_on:
+      - cache
+    ports:
+      - '8000:8000'
+    expose:
+      - '8000'
+
+  cache:
+    image: redis:alpine
+    container_name: "cache"
+    restart: always
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_volume:/data
+
+  database:
+    image: mariadb:11.0.3
+    container_name: "database"
+    restart: always
+    environment:
+      MARIADB_HOST: database
+      MARIADB_DATABASE: 'blogs_database'
+      MARIADB_ROOT_PASSWORD: 'root'
+    ports:
+      - '3306:3306'
+    volumes:
+      - mariadb_volume:/var/lib/mariadb
+
+volumes:
+  mariadb_volume:
+  redis_volume:
