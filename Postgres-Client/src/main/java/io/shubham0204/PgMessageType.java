@@ -1,0 +1,16 @@
+package io.shubham0204;
+
+public enum PgMessageType {
+    AUTHENTICATION_REQUEST,
+    ERROR,
+    NOTICE,
+    ROW_DATA,
+    ROW_DESC,
+    COMMAND_COMPLETE,
+    READY_FOR_QUERY,
+    BACKEND_KEY_DATA,
+    PARAMETER_STATUS,
+    PASSWORD_RESPONSE,
+    QUERY,
+    CLOSE
+}
