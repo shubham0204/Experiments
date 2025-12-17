@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.webgpu.BackendType
 import io.shubham0204.webgpudemo.ui.theme.WebGPUDemoTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -170,7 +171,7 @@ class MainActivity : ComponentActivity() {
                 Text(text = "Device ID: ${info.deviceID}")
                 Text(text = "Subgroup Min Size: ${info.subgroupMinSize}")
                 Text(text = "Subgroup Max Size: ${info.subgroupMaxSize}")
-                Text(text = "Backend Type: ${info.backendType}")
+                Text(text = "Backend Type: ${BackendType.Companion.toString(info.backendType)}")
             }
         }
     }
