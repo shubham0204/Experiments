@@ -2,33 +2,33 @@ package io.shubham0204.webgpudemo
 
 import android.annotation.SuppressLint
 import android.util.Log
-import androidx.webgpu.AdapterInfo
-import androidx.webgpu.BindGroupDescriptor
-import androidx.webgpu.BindGroupEntry
-import androidx.webgpu.BindGroupLayoutDescriptor
-import androidx.webgpu.BindGroupLayoutEntry
-import androidx.webgpu.BufferBindingLayout
 import androidx.webgpu.BufferBindingType
-import androidx.webgpu.BufferDescriptor
-import androidx.webgpu.BufferMapCallback
 import androidx.webgpu.BufferUsage
-import androidx.webgpu.CommandEncoderDescriptor
-import androidx.webgpu.ComputePassDescriptor
-import androidx.webgpu.ComputePipelineDescriptor
-import androidx.webgpu.ComputeState
-import androidx.webgpu.DeviceDescriptor
 import androidx.webgpu.DeviceLostCallback
+import androidx.webgpu.GPUAdapterInfo
 import androidx.webgpu.GPUBindGroup
+import androidx.webgpu.GPUBindGroupDescriptor
+import androidx.webgpu.GPUBindGroupEntry
 import androidx.webgpu.GPUBindGroupLayout
+import androidx.webgpu.GPUBindGroupLayoutDescriptor
+import androidx.webgpu.GPUBindGroupLayoutEntry
 import androidx.webgpu.GPUBuffer
+import androidx.webgpu.GPUBufferBindingLayout
+import androidx.webgpu.GPUBufferDescriptor
+import androidx.webgpu.GPUCommandEncoderDescriptor
+import androidx.webgpu.GPUComputePassDescriptor
 import androidx.webgpu.GPUComputePipeline
+import androidx.webgpu.GPUComputePipelineDescriptor
+import androidx.webgpu.GPUComputeState
 import androidx.webgpu.GPUDevice
+import androidx.webgpu.GPUDeviceDescriptor
 import androidx.webgpu.GPUPipelineLayout
+import androidx.webgpu.GPUPipelineLayoutDescriptor
+import androidx.webgpu.GPURequestCallback
 import androidx.webgpu.GPUShaderModule
+import androidx.webgpu.GPUShaderModuleDescriptor
+import androidx.webgpu.GPUShaderSourceWGSL
 import androidx.webgpu.MapMode
-import androidx.webgpu.PipelineLayoutDescriptor
-import androidx.webgpu.ShaderModuleDescriptor
-import androidx.webgpu.ShaderSourceWGSL
 import androidx.webgpu.ShaderStage
 import androidx.webgpu.UncapturedErrorCallback
 import androidx.webgpu.helper.createWebGpu
@@ -39,9 +39,9 @@ import java.util.concurrent.Executors
 import kotlin.math.ceil
 
 /**
- * A WebGPU-based compute shader that calculates pair-wise cosine similarity
- * in a set of given vectors. This class uses the Kotlin WebGPU API, now a part of AndroidX.
- * See https://developer.android.com/jetpack/androidx/releases/webgpu
+ * A WebGPU-based compute shader that calculates pair-wise cosine similarity in a set of given
+ * vectors. This class uses the Kotlin WebGPU API, now a part of AndroidX. See
+ * https://developer.android.com/jetpack/androidx/releases/webgpu
  */
 class WGPUComputeShader {
 
@@ -99,15 +99,16 @@ class WGPUComputeShader {
         """
             .trimIndent()
 
-    fun getGPUDeviceInfo(): AdapterInfo = runBlocking {
+    fun getGPUDeviceInfo(): GPUAdapterInfo = runBlocking {
         val adapter = webGpu.instance.requestAdapter()
         return@runBlocking adapter.getInfo()
     }
 
+    @SuppressLint("RestrictedApi")
     fun execute(vectors: Array<FloatArray>, onComplete: (Array<FloatArray>) -> Unit) = runBlocking {
         val adapter = webGpu.instance.requestAdapter()
         val deviceDescriptor =
-            DeviceDescriptor(
+            GPUDeviceDescriptor(
                 deviceLostCallbackExecutor = executor,
                 deviceLostCallback =
                     DeviceLostCallback { device, reason, message ->
@@ -128,7 +129,7 @@ class WGPUComputeShader {
         val device = adapter.requestDevice(deviceDescriptor)
         val shaderModule =
             device.createShaderModule(
-                ShaderModuleDescriptor(shaderSourceWGSL = ShaderSourceWGSL(code = code))
+                GPUShaderModuleDescriptor(shaderSourceWGSL = GPUShaderSourceWGSL(code = code))
             )
 
         val numVectors = vectors.size.toLong()
@@ -164,8 +165,8 @@ class WGPUComputeShader {
         val pipelineLayout = createPipelineLayout(device, bindGroupLayout)
         val pipeline = createPipeline(device, pipelineLayout, shaderModule)
 
-        val commandEncoder = device.createCommandEncoder(CommandEncoderDescriptor())
-        val computePass = commandEncoder.beginComputePass(ComputePassDescriptor())
+        val commandEncoder = device.createCommandEncoder(GPUCommandEncoderDescriptor())
+        val computePass = commandEncoder.beginComputePass(GPUComputePassDescriptor())
         computePass.setPipeline(pipeline)
         computePass.setBindGroup(0, bindGroup)
 
@@ -190,16 +191,21 @@ class WGPUComputeShader {
             0,
             resultsBuffer.size,
             executor,
-            BufferMapCallback { status, message ->
-                Log.i(logTag, "resultsBuffer mapped with status=$status and message=$message")
-                val resultData = resultsBuffer.getConstMappedRange(0, resultsBuffer.size)
-                val resultArray = Array(numVectors.toInt()) { FloatArray(numVectors.toInt()) }
-                for (i in 0 until numVectors.toInt()) {
-                    for (j in 0 until numVectors.toInt()) {
-                        resultArray[i][j] = resultData.getFloat()
+            object : GPURequestCallback<Unit> {
+                override fun onResult(result: Unit) {
+                    val resultData = resultsBuffer.getConstMappedRange(0, resultsBuffer.size)
+                    val resultArray = Array(numVectors.toInt()) { FloatArray(numVectors.toInt()) }
+                    for (i in 0 until numVectors.toInt()) {
+                        for (j in 0 until numVectors.toInt()) {
+                            resultArray[i][j] = resultData.getFloat()
+                        }
                     }
+                    onComplete(resultArray)
                 }
-                onComplete(resultArray)
+
+                override fun onError(exception: Exception) {
+                    Log.e(logTag, "Error executing compute shader: ${exception.message}")
+                }
             },
         )
     }
@@ -211,7 +217,7 @@ class WGPUComputeShader {
         vectorDims: Long,
     ): GPUBuffer {
         return device.createBuffer(
-            BufferDescriptor(
+            GPUBufferDescriptor(
                 label = "vectors",
                 size = numVectors * vectorDims * 4,
                 usage = BufferUsage.Storage or BufferUsage.CopyDst,
@@ -223,7 +229,7 @@ class WGPUComputeShader {
     @SuppressLint("RestrictedApi")
     private fun createSimilaritiesBuffer(device: GPUDevice, numVectors: Long): GPUBuffer {
         return device.createBuffer(
-            BufferDescriptor(
+            GPUBufferDescriptor(
                 label = "similarities",
                 size = numVectors * numVectors * 4,
                 usage = BufferUsage.Storage or BufferUsage.CopySrc,
@@ -235,7 +241,7 @@ class WGPUComputeShader {
     @SuppressLint("RestrictedApi")
     private fun createParamsBuffer(device: GPUDevice): GPUBuffer {
         return device.createBuffer(
-            BufferDescriptor(
+            GPUBufferDescriptor(
                 label = "params",
                 size = 8,
                 usage = BufferUsage.Uniform or BufferUsage.CopyDst,
@@ -247,7 +253,7 @@ class WGPUComputeShader {
     @SuppressLint("RestrictedApi")
     private fun createResultsBuffer(device: GPUDevice, numVectors: Long): GPUBuffer {
         return device.createBuffer(
-            BufferDescriptor(
+            GPUBufferDescriptor(
                 label = "results",
                 size = numVectors * numVectors * 4,
                 usage = BufferUsage.MapRead or BufferUsage.CopyDst,
@@ -259,34 +265,34 @@ class WGPUComputeShader {
     @SuppressLint("RestrictedApi")
     private fun createBindGroupLayout(device: GPUDevice): GPUBindGroupLayout {
         return device.createBindGroupLayout(
-            BindGroupLayoutDescriptor(
+            GPUBindGroupLayoutDescriptor(
                 entries =
                     arrayOf(
-                        BindGroupLayoutEntry(
+                        GPUBindGroupLayoutEntry(
                             binding = 0,
                             visibility = ShaderStage.Compute,
                             buffer =
-                                BufferBindingLayout(
+                                GPUBufferBindingLayout(
                                     type = BufferBindingType.ReadOnlyStorage,
                                     hasDynamicOffset = false,
                                     minBindingSize = 4,
                                 ),
                         ),
-                        BindGroupLayoutEntry(
+                        GPUBindGroupLayoutEntry(
                             binding = 1,
                             visibility = ShaderStage.Compute,
                             buffer =
-                                BufferBindingLayout(
+                                GPUBufferBindingLayout(
                                     type = BufferBindingType.Storage,
                                     hasDynamicOffset = false,
                                     minBindingSize = 4,
                                 ),
                         ),
-                        BindGroupLayoutEntry(
+                        GPUBindGroupLayoutEntry(
                             binding = 2,
                             visibility = ShaderStage.Compute,
                             buffer =
-                                BufferBindingLayout(
+                                GPUBufferBindingLayout(
                                     type = BufferBindingType.Uniform,
                                     hasDynamicOffset = false,
                                     minBindingSize = 8,
@@ -305,13 +311,13 @@ class WGPUComputeShader {
         paramsBuffer: GPUBuffer,
     ): GPUBindGroup {
         return device.createBindGroup(
-            BindGroupDescriptor(
+            GPUBindGroupDescriptor(
                 layout = bindGroupLayout,
                 entries =
                     arrayOf(
-                        BindGroupEntry(binding = 0, buffer = vectorsBuffer),
-                        BindGroupEntry(binding = 1, buffer = similaritiesBuffer),
-                        BindGroupEntry(binding = 2, buffer = paramsBuffer),
+                        GPUBindGroupEntry(binding = 0, buffer = vectorsBuffer),
+                        GPUBindGroupEntry(binding = 1, buffer = similaritiesBuffer),
+                        GPUBindGroupEntry(binding = 2, buffer = paramsBuffer),
                     ),
             )
         )
@@ -322,7 +328,7 @@ class WGPUComputeShader {
         bindGroupLayout: GPUBindGroupLayout,
     ): GPUPipelineLayout {
         return device.createPipelineLayout(
-            PipelineLayoutDescriptor(bindGroupLayouts = arrayOf(bindGroupLayout))
+            GPUPipelineLayoutDescriptor(bindGroupLayouts = arrayOf(bindGroupLayout))
         )
     }
 
@@ -332,9 +338,9 @@ class WGPUComputeShader {
         shaderModule: GPUShaderModule,
     ): GPUComputePipeline {
         return device.createComputePipeline(
-            ComputePipelineDescriptor(
+            GPUComputePipelineDescriptor(
                 layout = pipelineLayout,
-                compute = ComputeState(module = shaderModule, entryPoint = "main"),
+                compute = GPUComputeState(module = shaderModule, entryPoint = "main"),
             )
         )
     }

@@ -51,7 +51,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
 
-    implementation("androidx.webgpu:webgpu:1.0.0-alpha01")
+    implementation("androidx.webgpu:webgpu:1.0.0-alpha04")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
