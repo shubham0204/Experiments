@@ -1,0 +1,1 @@
+# `gzip` Based Text Classifier on a Raspberry Pi Pico 2W
